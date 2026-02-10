@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Send, Instagram, Facebook } from "lucide-react";
+import { Send, Instagram, Facebook, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const ContactSection = () => {
   const { toast } = useToast();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -15,10 +17,9 @@ const ContactSection = () => {
     message: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic validation
     if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
       toast({
         title: "Preencha os campos obrigatórios",
@@ -28,7 +29,6 @@ const ContactSection = () => {
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast({
@@ -39,11 +39,28 @@ const ContactSection = () => {
       return;
     }
 
-    setIsSubmitted(true);
-    toast({
-      title: "Mensagem enviada! ✅",
-      description: "Entraremos em contato em breve. Obrigado!",
-    });
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("submit-contact", {
+        body: formData,
+      });
+
+      if (error) throw error;
+
+      setIsSubmitted(true);
+      toast({
+        title: "Mensagem enviada! ✅",
+        description: "Entraremos em contato em breve. Obrigado!",
+      });
+    } catch {
+      toast({
+        title: "Erro ao enviar",
+        description: "Tente novamente mais tarde.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (
@@ -140,10 +157,15 @@ const ContactSection = () => {
                 <Button
                   type="submit"
                   size="lg"
+                  disabled={isLoading}
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
                 >
-                  <Send className="w-4 h-4" />
-                  Enviar Mensagem
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  {isLoading ? "Enviando..." : "Enviar Mensagem"}
                 </Button>
               </form>
             )}
